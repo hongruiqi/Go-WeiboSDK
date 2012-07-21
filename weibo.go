@@ -14,11 +14,6 @@ const (
 
 type APIReply interface{}
 
-type Result struct {
-	Reply APIReply
-	Error error
-}
-
 type Weibo struct {
 	clientId     string
 	clientSecret string
@@ -34,7 +29,7 @@ func New(clientId, clientSecret string) *Weibo {
 	return weibo
 }
 
-func (weibo *Weibo) AccessToken(code string, redirectUri string) <-chan Result {
+func (weibo *Weibo) AccessToken(code string, redirectUri string) (*AccessToken, <-chan error) {
 	paramsFmt := "client_id=%s&client_secret=%s&grant_type=authorization_code&redirect_uri=%s&code=%s"
 	params := fmt.Sprintf(paramsFmt,
 		weibo.clientId,
@@ -42,26 +37,27 @@ func (weibo *Weibo) AccessToken(code string, redirectUri string) <-chan Result {
 		redirectUri,
 		code)
 	url := fmt.Sprintf("%s%s?%s", WEIBO_OAUTH2_URL, "access_token", params)
-	return weibo.post(url, "", new(AccessToken))
+	accessToken := new(AccessToken)
+	return accessToken, weibo.post(url, "", accessToken)
 }
 
-func (weibo *Weibo) get(url string, reply APIReply) <-chan Result {
-	resultChan := make(chan Result, 2)
-	go weibo.call(url, true, "", reply, resultChan)
-	return resultChan
+func (weibo *Weibo) get(url string, reply APIReply) <-chan error {
+	errChan := make(chan error, 2)
+	go weibo.call(url, true, "", reply, errChan)
+	return errChan
 }
 
-func (weibo *Weibo) post(url string, contentType string, reply APIReply) <-chan Result {
+func (weibo *Weibo) post(url string, contentType string, reply APIReply) <-chan error {
 	if contentType == "" {
 		contentType = "application/x-www-form-encoded"
 	}
-	resultChan := make(chan Result, 2)
-	weibo.call(url, false, contentType, reply, resultChan)
-	return resultChan
+	errChan := make(chan error, 2)
+	weibo.call(url, false, contentType, reply, errChan)
+	return errChan
 }
 
-func (weibo *Weibo) call(url string, get bool, contentType string, reply APIReply, resultChan chan Result) {
-	log.Println(url)
+func (weibo *Weibo) call(url string, get bool, contentType string, reply APIReply, errChan chan error) {
+	log.Printf("[WeiboSDK] %s", url)
 	var resp *http.Response
 	var err error
 	if get {
@@ -70,7 +66,7 @@ func (weibo *Weibo) call(url string, get bool, contentType string, reply APIRepl
 		resp, err = weibo.client.Post(url, contentType, nil)
 	}
 	if err != nil {
-		resultChan <- Result{Error: err}
+		errChan <- err
 		return
 	}
 	defer resp.Body.Close()
@@ -78,19 +74,19 @@ func (weibo *Weibo) call(url string, get bool, contentType string, reply APIRepl
 	if resp.StatusCode == 200 {
 		err = dec.Decode(reply)
 		if err != nil {
-			resultChan <- Result{Error: err}
+			errChan <- err
 			return
 		}
-		resultChan <- Result{Reply: reply}
+		errChan <- nil
 		return
 	}
 	APIErr := new(APIError)
 	err = dec.Decode(APIErr)
 	if err != nil {
-		resultChan <- Result{Error: err}
+		errChan <- err
 		return
 	}
-	resultChan <- Result{Error: APIErr}
+	errChan <- err
 }
 
 func (weibo *Weibo) makeUrl(api string, access_token string, must map[string]interface{}, options map[string]interface{}) string {
