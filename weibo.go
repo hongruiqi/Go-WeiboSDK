@@ -17,15 +17,14 @@ type APIReply interface{}
 type Weibo struct {
 	clientId     string
 	clientSecret string
-	client       *http.Client
 	Statuses     *statuses
+	Account      *account
 }
 
 func New(clientId, clientSecret string) *Weibo {
-	tr := &http.Transport{MaxIdleConnsPerHost: 5}
-	client := &http.Client{Transport: tr}
-	weibo := &Weibo{clientId: clientId, clientSecret: clientSecret, client: client}
+	weibo := &Weibo{clientId: clientId, clientSecret: clientSecret}
 	weibo.Statuses = &statuses{weibo: weibo}
+	weibo.Account = &account{weibo: weibo}
 	return weibo
 }
 
@@ -61,9 +60,9 @@ func (weibo *Weibo) call(url string, get bool, contentType string, reply APIRepl
 	var resp *http.Response
 	var err error
 	if get {
-		resp, err = weibo.client.Get(url)
+		resp, err = http.Get(url)
 	} else {
-		resp, err = weibo.client.Post(url, contentType, nil)
+		resp, err = http.Post(url, contentType, nil)
 	}
 	if err != nil {
 		errChan <- err
