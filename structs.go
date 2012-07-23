@@ -192,3 +192,7 @@ type Emotion struct {
 }
 
 type Emotions []Emotion
+
+type Uid struct {
+	Uid      int64 `json:"uid"`
+}
