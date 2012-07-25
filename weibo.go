@@ -29,7 +29,7 @@ func New(clientId, clientSecret string, debug bool) *Weibo {
 	return weibo
 }
 
-func (weibo *Weibo) AccessToken(code string, redirectUri string) (*AccessToken, <-chan error) {
+func (weibo *Weibo) AccessToken(code string, redirectUri string) (*AccessToken, error) {
 	paramsFmt := "client_id=%s&client_secret=%s&grant_type=authorization_code&redirect_uri=%s&code=%s"
 	params := fmt.Sprintf(paramsFmt,
 		weibo.clientId,
@@ -41,34 +41,28 @@ func (weibo *Weibo) AccessToken(code string, redirectUri string) (*AccessToken, 
 	return accessToken, weibo.post(url, "", accessToken)
 }
 
-func (weibo *Weibo) get(url string, reply APIReply) <-chan error {
-	errChan := make(chan error, 2)
-	go weibo.call(url, true, "", reply, errChan)
-	return errChan
+func (weibo *Weibo) get(url string, reply APIReply) error {
+	return weibo.call(url, true, "", reply)
 }
 
-func (weibo *Weibo) post(url string, contentType string, reply APIReply) <-chan error {
+func (weibo *Weibo) post(url string, contentType string, reply APIReply) error {
 	if contentType == "" {
 		contentType = "application/x-www-form-encoded"
 	}
-	errChan := make(chan error, 2)
-	weibo.call(url, false, contentType, reply, errChan)
-	return errChan
+	return weibo.call(url, false, contentType, reply)
 }
 
-func (weibo *Weibo) call(url string, get bool, contentType string, reply APIReply, errChan chan error) {
+func (weibo *Weibo) call(url string, get bool, contentType string, reply APIReply) (err error) {
 	if weibo.debug {
 		log.Printf("[WeiboSDK] %s", url)
 	}
 	var resp *http.Response
-	var err error
 	if get {
 		resp, err = http.Get(url)
 	} else {
 		resp, err = http.Post(url, contentType, nil)
 	}
 	if err != nil {
-		errChan <- err
 		return
 	}
 	defer resp.Body.Close()
@@ -76,19 +70,16 @@ func (weibo *Weibo) call(url string, get bool, contentType string, reply APIRepl
 	if resp.StatusCode == 200 {
 		err = dec.Decode(reply)
 		if err != nil {
-			errChan <- err
 			return
 		}
-		errChan <- nil
 		return
 	}
 	APIErr := new(APIError)
 	err = dec.Decode(APIErr)
 	if err != nil {
-		errChan <- err
 		return
 	}
-	errChan <- err
+	return
 }
 
 func (weibo *Weibo) makeUrl(api string, access_token string, must map[string]interface{}, options map[string]interface{}) string {
