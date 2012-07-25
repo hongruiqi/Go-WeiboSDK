@@ -8,7 +8,7 @@ Sina weibo api in golang
 
 ```go
 	wb := weibo.New("APPKey", "APPSecret")
-	userTimeline, errChan := wb.UserTimeline(access_token, uid, "", options) // options is of type map[string]interface{}
+	userTimeline, errChan := wb.Statuses.UserTimeline(access_token, uid, "", options) // options is of type map[string]interface{}
 	if err:=<-errChan; err!=nil {
 		panic(err)
 	}
