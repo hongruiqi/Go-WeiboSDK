@@ -8,7 +8,12 @@ Sina weibo api in golang
 
 ```go
 	wb := weibo.New("APPKey", "APPSecret")
-	userTimeline, errChan := wb.Statuses.UserTimeline(access_token, uid, "", options) // options is of type map[string]interface{}
+	
+	// errChan is the waiting channel for the result.
+	// userTimeline can't be read until errChan received nil.
+	// A received error indicates that something wrong in api call.
+	// Options is of type map[string]interface{} for addition params.
+	userTimeline, errChan := wb.Statuses.UserTimeline(access_token, uid, "", options) 
 	if err:=<-errChan; err!=nil {
 		panic(err)
 	}
